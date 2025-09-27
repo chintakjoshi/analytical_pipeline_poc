@@ -1,11 +1,8 @@
 from __future__ import annotations
-
 import io
 from typing import Optional
-
 import numpy as np
 import pandas as pd
-
 
 def format_money_df(df: pd.DataFrame, fmt: str = ",.2f") -> pd.DataFrame:
     """

@@ -1,11 +1,8 @@
 from __future__ import annotations
-
 from dataclasses import dataclass
 from typing import Optional
-
 import pandas as pd
 from dateutil import parser
-
 
 # ------------------------------ LOADING ------------------------------ #
 

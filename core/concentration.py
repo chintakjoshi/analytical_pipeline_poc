@@ -1,11 +1,8 @@
 from __future__ import annotations
-
 import math
 from typing import Dict, Iterable, List, Tuple
-
 import numpy as np
 import pandas as pd
-
 
 def _top_k_count(n: int, pct: int) -> int:
     """Number of groups to include for a given percentage of count."""
