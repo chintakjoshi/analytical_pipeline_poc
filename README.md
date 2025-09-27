@@ -1,123 +1,154 @@
-# Analytical Pipeline POC (Concentration Analysis + API)
+# Concentration Analysis POC
 
-This project is a lightweight proof-of-concept for an **analytical data pipeline**.  
-It ingests Excel/CSV financial data, infers schema automatically, normalizes columns, detects anomalies, runs a **concentration analysis** (Top 10/20/50% buckets per period), and exports results.  
+This project is a **lightweight proof-of-concept (POC)** for building an
+analytical data pipeline that ingests Excel/CSV files, infers schema,
+and computes a **concentration analysis**. It demonstrates how users can
+upload financial data and generate insights like the **Top 10% / 20% /
+50% contributions** per period, similar to the example output provided
+in the spec.
 
-It can be used either as a **CLI tool** or as a **FastAPI service**.
+------------------------------------------------------------------------
 
----
+## Features
 
-## ✨ Features
-- Upload Excel/CSV input files
-- Automatic schema inference (categorical, numeric, and time columns)
-- Normalization of dates and datatypes
-- Outlier detection (z-score–based)
-- Concentration analysis: cumulative shares, Top 10/20/50% buckets
-- Insights surfaced (high concentration, long tail shrinkage, etc.)
-- Full audit log: lineage, params, file hashes
-- Export outputs to CSV and Excel
-- REST API for programmatic access
+-   Upload CSV or Excel files with mixed categorical + numerical data
+-   Schema inference (no hardcoding required)
+-   Period bucketing (**Quarter / Month / Year**)
+-   Concentration analysis:
+    -   Dynamically aggregate into **Top 10%, 20%, 50%** of groups per
+        period (by **count of groups**)
+    -   Compute total values per period
+-   Clean, human-readable output tables
+-   Export results to **CSV** and **Excel**
+-   Streamlit-based web UI for interaction
+-   Modular core functions for reusability and extension
 
----
+------------------------------------------------------------------------
 
-## 🚀 Setup
+## Project Structure
 
-### Local Environment
-```bash
-git clone <this-repo>
-cd analytical-pipeline-poc
-python -m venv .venv
-. .venv/Scripts/activate      # Windows
-# or: source .venv/bin/activate   # Linux/macOS
-pip install -r requirements.txt
+    your-project/
+      app.py                  # Streamlit app
+      requirements.txt        # Dependencies
+      core/
+        __init__.py
+        data_ingest.py        # File loading, type coercion, column guessing
+        concentration.py      # Concentration analysis logic
+        utils.py              # Helpers for formatting & exporting
+
+------------------------------------------------------------------------
+
+## Setup
+
+1.  Clone this repository:
+
+    ``` bash
+    git clone <your-repo-url>
+    cd your-project
+    ```
+
+2.  (Optional) Create a virtual environment:
+
+    ``` bash
+    python -m venv venv
+    source venv/bin/activate   # On Linux/Mac
+    venv\Scripts\activate      # On Windows
+    ```
+
+3.  Install dependencies:
+
+    ``` bash
+    pip install -r requirements.txt
+    ```
+
+------------------------------------------------------------------------
+
+## Running the App
+
+Run the Streamlit application:
+
+``` bash
+streamlit run app.py
 ```
 
-### Docker
-```bash
-docker build -t pipeline-poc .
-docker run --rm -p 8000:8000 -v "$PWD:/work" pipeline-poc
-```
+Open the provided URL in your browser (usually `http://localhost:8501`).
 
----
+------------------------------------------------------------------------
 
-## 🔧 Usage
+## Usage
 
-### CLI
-Run pipeline on sample data:
+1.  **Upload a file**\
+    Supported formats: `.csv`, `.xls`, `.xlsx`.
 
-```bash
-python -m app.cli --input data/sample.xlsx --outdir outputs
-```
+2.  **Select columns**
 
-Explicit column selection:
+    -   Time column (date/timestamp)\
+    -   Categorical column (e.g., customer/vendor ID)\
+    -   Numeric column (e.g., revenue/amount)
 
-```bash
-python -m app.cli --input data/sample.xlsx   --group Customer --metric Revenue --time-col Period   --outdir outputs --excel-export
-```
+3.  **Choose options**
 
-Artifacts will be written to `outputs/`:
-- `normalized.csv`
-- `anomalies.csv`
-- `concentration_by_group_period.csv`
-- `concentration_summary.csv`
-- `outputs.xlsx`
-- `audit.json`
+    -   Period bucketing: Quarter / Month / Year\
+    -   Percent buckets: default `10,20,50` (can be customized)\
+    -   Order: Descending (top contributors) or Ascending (bottom
+        contributors)
 
----
+4.  **View output**
 
-### API
+    -   Table shows Top 10% / 20% / 50% rows and a Total row\
+    -   Each value is the sum of contributions for that slice\
+    -   Row labels show median group counts across periods,
+        e.g. `Top 10% (81)`
 
-Start the FastAPI server:
+5.  **Export results**
 
-```bash
-uvicorn app.server:app --reload --host 0.0.0.0 --port 8000
-```
+    -   Download as `.csv`\
+    -   Download as `.xlsx`
 
-Docs: [http://localhost:8000/docs](http://localhost:8000/docs)
+------------------------------------------------------------------------
 
-Upload a file:
+## Example Output
 
-#### PowerShell (Windows):
-```powershell
-Invoke-WebRequest -Uri "http://localhost:8000/analyze" -Method POST `
-  -Form @{ file = Get-Item "data/sample.xlsx" }
-```
+  -------------------------------------------------------------------------------
+  Concentration   Q1-20           Q2-20           Q3-20           Q4-20
+  --------------- --------------- --------------- --------------- ---------------
+  Top 10% (81)    20,342,157.06   19,413,361.83   25,959,130.38   31,515,706.43
 
-#### Real curl:
-```powershell
-& curl.exe -X POST "http://localhost:8000/analyze" -F "file=@data/sample.xlsx"
-```
+  Top 20% (162)   20,607,727.28   19,725,310.58   27,123,829.59   31,893,798.32
 
-#### Python client:
-```python
-import requests
-files = {"file": open("data/sample.xlsx", "rb")}
-resp = requests.post("http://localhost:8000/analyze", files=files)
-print(resp.json())
-```
+  Top 50% (406)   20,607,997.92   19,808,497.19   27,732,122.54   33,737,789.52
 
-Response JSON includes schema, chosen columns, artifact paths, and insights.
+  Total           20,454,764.16   22,598,318.92   29,192,915.00   34,606,326.93
+  -------------------------------------------------------------------------------
 
----
+------------------------------------------------------------------------
 
-## 🧪 Tests
-```bash
-pytest -q
-```
+## Design Notes
 
----
+-   **Top X% is by group count**\
+    For example, if there are 800 customers in a period, `Top 10%`
+    selects the top 80 customers ranked by revenue.
 
-## ⚙️ Design Notes
-- Modular pipeline: `ingest` → `schema_infer` → `anomaly` → `analysis` → `storage` → `audit`
-- Stateless CLI/API: outputs everything into `outputs/<run_id>/`
-- Schema inference is dynamic, no hardcoding
-- Artifacts + `audit.json` provide full lineage & reproducibility
-- Scaling path: swap Pandas → Polars/DuckDB/Spark; add dbt for transformations; orchestrate with Prefect/Dagster
+-   **Schema inference**\
+    Automatically guesses time, categorical, and numeric columns. User
+    can override in UI.
 
----
+-   **Scalability**\
+    Core computation is vectorized with pandas. Can scale to millions of
+    rows. For larger (10M+ rows), backend optimizations or Spark/Dask
+    can be added later.
 
-## ✅ Success Criteria
-- **Organized** workflows with modular design
-- **Standardized** artifact outputs
-- **Documented** transformations (`audit.json`)
-- **Extensible** to larger-scale engines and orchestration
+-   **Auditability**\
+    Transformations are explicit, documented, and reproducible. Outputs
+    can be re-run easily on new data.
+
+------------------------------------------------------------------------
+
+## Extending
+
+-   Replace group-count concentration with **value-share concentration**
+    (top X% of revenue instead of entities).
+-   Add anomaly detection and schema change detection.
+-   Integrate with databases (Postgres, Snowflake) instead of file
+    upload.
+-   Add Dockerfile for deployment.
